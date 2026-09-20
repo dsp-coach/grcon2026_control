@@ -1,0 +1,40 @@
+MIT License
+
+GNU Radio Conference 2026 - Control Systems example code
+© 2026 The DSP Coach, LLC (https://dsp-coach.com)
+
+This MIT license applies to the SOURCE CODE in this repository: the executable
+Python in control_systems.py and any other .py files. Because this is a marimo
+notebook, code and prose share a single .py file - the explanatory text lives
+inside mo.md() blocks. That text is written material, not source code, and is
+licensed separately, as are the figures and the slides - see
+LICENSE-CONTENT.md.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Suggested attribution (courtesy - not a condition of this license)
+
+The MIT license above asks only that the copyright notice travel with the
+code. If you would also like to credit where it came from, in a paper, a
+README or a talk, this form is suggested:
+
+    Phase locked loop example code from "Control Systems," Dan Boschen,
+    The DSP Coach, LLC, GNU Radio Conference 2026.
+    https://github.com/dsp-coach/grcon2026_control

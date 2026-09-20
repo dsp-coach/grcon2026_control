@@ -1,0 +1,27 @@
+# Editor / OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
+
+# marimo session cache - regenerated on every run, embeds cell outputs
+__marimo__/
+
+# Claude Code and other AI tooling - never part of this repository.
+# The presentation is about control systems, not about how it was authored.
+.claude/
+.claude-plugin/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+.mcp.json
+.agents/
+.codex-plugin/
+
+# Third-party IQ recording - not redistributed, see data/README.md
+data/*.wav

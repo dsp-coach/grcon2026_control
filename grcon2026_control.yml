@@ -1,0 +1,23 @@
+name: grcon2026_control
+
+# Conda environment for the "Control Systems" notebook,
+# GNU Radio Conference 2026 - The DSP Coach, LLC
+#
+#   conda env create -f grcon2026_control.yml
+#   conda activate grcon2026_control
+#
+# Versions are pinned at the minor release, so conda is free to pick the most
+# recent patch release within each line. See INSTALL.md for the full procedure
+# and for the equivalent one-line `conda create` command.
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.14
+  - numpy=2.5
+  - scipy=1.18
+  - matplotlib=3.11
+  - control=0.10
+  - marimo=0.24
+  - ipython=9.17
