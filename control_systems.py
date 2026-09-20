@@ -853,12 +853,344 @@ def _(filtered_phase, fs, np, plt, start1):
 
 @app.cell(hide_code=True)
 def _(mo):
+    mo.vstack(
+        [
+            mo.md(
+                r"""
+    ## Digital Phase Lock Loop Model
+    """
+            ),
+            mo.image(
+                mo.notebook_dir() / "img" / "digital_pll_loop_model.png",
+                alt="Digital PLL loop model",
+            ),
+            mo.md(
+                r"""
+    Note the units used for error and FCW here are actual counts, so will match the digital values at those nodes.
+
+    Open Loop Gain:
+
+    $$G_{OL}(z)= \frac{k_Vk_{PD}}{z-1}H(z)$$
+    """
+            ),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(np):
+    fs_1 = 192000.0  # sampling rate in Hz. We'll use normalized radian frequency in the model.
+    d_lbw = 2 * np.pi * 200 / fs_1  # target loop bw in rad/sample
+    return d_lbw, fs_1
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.vstack(
+        [
+            mo.md(
+                r"""
+    ### NCO
+    """
+            ),
+            mo.image(
+                mo.notebook_dir() / "img" / "nco_block_diagram.png",
+                alt="NCO block diagram",
+            ),
+            mo.md(
+                r"""
+    Input on left is Frequency Control Word (FCW)
+    Output on right is the digitized sinusoid as the output of a Look-up Table (LUT) effectively containing one cycle of a sine wave.
+
+    For a small FCW, the accumulator will ramp up slowly. For a large FCW, the accumulator will ramp up more rapidly.
+
+    The Most Significant Bits of the accumulator are used as the address for the LUT. The accumulator wraps around on overflow, and thus produces a digitized sinusoidal output waveform with a frequency directly proportional to FCW, with a full range of DC to half the sampling rate.
+
+    Given a PLL implementation, we will work in units of phase, not frequency. In this context, the NCO, like the VCO, is an integrator, as a "phase accumulator".  The NCO gain for the loop model is $k_V/(z-1)$, where $k_V$ is the slope of the output frequency in radians/sample verus the frequency control word FCW. Note similarity of VCO gain for analog loop as $\frac{K_V}{s}$.
+
+    The frequency vs control word sensitivity is as shown in the plot below, resulting in
+    """
+            ),
+            mo.image(
+                mo.notebook_dir() / "img" / "nco_frequency_vs_fcw.png",
+                alt="NCO frequency vs frequency control word",
+            ),
+            mo.md(
+                r"""
+     This is a good example of how the mapping from s to z for poles and zeros in vicinity of $z=1$ is simply $s \leftrightarrow z-1$ when working in units of normalized frequency such that the time index is in samples ($T=1$).
+    """
+            ),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(np):
+    # NCO 
+    accum_size = 48
+    fcw_size = 47
+
+
+    d_kv= np.pi/2**fcw_size        # NCO gain in rad/count
+    return (d_kv,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.vstack(
+        [
+            mo.md(
+                r"""
+    ### Phase Detector
+    """
+            ),
+            mo.image(
+                mo.notebook_dir() / "img" / "digital_phase_detector.png",
+                alt="Digital phase detector",
+            ),
+        ]
+    )
+    return
+
+
+@app.cell
+def _():
+    precision = 16               # precision of both phase detector inputs
+    d_kpd = 2**(precision-1)     # Phase detector gain counts/rad
+    return (d_kpd,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.vstack(
+        [
+            mo.md(
+                r"""
+    ### PI Loop Filter
+    """
+            ),
+            mo.image(
+                mo.notebook_dir() / "img" / "pi_loop_filter_block_diagram.png",
+                alt="PI loop filter block diagram",
+            ),
+            mo.md(
+                r"""
+    $$H(z) = P+I\frac{1}{z-1} = \frac{\tau_2}{\tau_1} + \frac{1}{\tau_1}\frac{1}{z-1}$$
+
+    $$=\frac{\tau_2(z-1) + 1}{\tau_1(z-1)} = \frac{\tau_2z +1 - \tau_2}{\tau_1(z-1)} $$
+
+    ### Open Loop Gain
+
+    $$G_{OL}(z)= \frac{k_Vk_{PD}}{z-1}H(z)$$
+
+    $$=  \bigg(\frac{k_Vk_{PD}}{z-1}\bigg)\bigg(\frac{\tau_2z +1 - \tau_2}{\tau_1(z-1)}\bigg)$$
+
+    $$ = \bigg(\frac{k_Vk_{PD}}{\tau_1}\bigg)\bigg(\frac{\tau_2z +1 - \tau_2}{(z-1)^2}\bigg)$$
+    """
+            ),
+        ]
+    )
+    return
+
+
+@app.cell
+def _(con, d_kpd, d_kv, fs_1):
+    # since we'll iterate on gain constants, make the open loop gain a function
+    def gol_digital(tau1, tau2):
+    # setting dt is what makes this a transfer function in z instead of s (digital instead of analog)
+    # setting dt will not affect the decision to use normalized frequency or not (gains don't change)
+    # but will effect the units on the horizontal axis for Bode plots
+        return d_kv * d_kpd / tau1 * con.tf([tau2, 1 - tau2], [1, -2, 1], dt=1 / fs_1)
+
+    return (gol_digital,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.md(r"""
-    ### Time Sequenced Component Model
+    ### Starting Loop Values
+
+    Like we did for the analog 2nd order PLL, we'll first set $\tau_2=0$ and adjust $\tau_1$ (primary gain control) such that the zero dB gain crossing is right at the loop bandwidth.
+
+    With $\tau_2=0$, the open loop gain simplifies to:
+
+    $$ G_{OL}(z)|_{\tau_2=0}= \bigg(\frac{k_Vk_{PD}}{\tau_1(z-1)^2}\bigg)$$
+
+    Similar to estimating $\tau_1$ in the analog loop, but with added complexity of the unit circle on the z-plane being the frequency axis. Therefore we set $z=e^{j\omega_c}$  (like we set $s=\omega_c$ for the analog loop), and determine $\tau_1$ such that $|G_{OL}(z)|=1$
+
+    This becomes:
+
+    $$\tau_1 = \bigg| \frac{k_Vk_{PD}}{(e^{j\omega_c}-1)^2}  \bigg| $$
+
+    Assuming a positive $k_V$ and $k_{PD}$ (when negative that is considered the negative feedback for the loop and only positive gain values are used), then
+
+    $$\tau_1 =\frac{k_Vk_{PD}}{|(e^{j\omega_c}-1)|^2}  $$
+
+    Note for $\omega_c<< 1$,   $|(e^{j\omega_c}-1)|^2  \approx \omega_c^2$ (looking at that graphically on the complex plane provides great intuition for this) and for these cases we end up with a similar equation to the analog loop:
+
+    $$\tau_1 \approx \frac{k_Vk_{PD}}{\omega_c^2}, \text{   for } \omega_c<< 1  $$
+
+    This is intuitively pleasing as we would expect the loop models to match the analog models if we significantly oversample the loop. Since we are dealing with normalized frequencies in the digital case (divide by the sampling rate), as the sampling rate increases, $\omega_n$ will get increasingly smaller for the same loop bandwidth in Hz.
+
+    Since we are iterating after setting the initial values, this will be a sufficient estimate even for higher frequency cases.
+
+    We'll then add the zero at (45° phase margin) or slightly below (higher phase margin) the loop bandwidth for stability.
+
+    This will increase the bandwidth slightly, so then iterate on both from these starting values to decrease the loop gain using $\tau_1$, and increase or decrease $\tau_2$ while observing response on Bode plot for desired gain and phase margin.
+    """)
+    return
+
+
+@app.cell
+def _(d_kpd, d_kv, d_lbw, np):
+    print(f"Target loop bw = {d_lbw:0.5f} rad/sample")
+    print(f" = {d_lbw/(2*np.pi):0.4f} cycles/sample")
+
+    d_tau1_init = (d_kv * d_kpd)/d_lbw**2
+    print(f"Initial value for tau1 = {d_tau1_init:0.2e}")
+    return (d_tau1_init,)
+
+
+@app.cell
+def _(con, d_tau1_init, fs_1, gol_digital, plt):
+    _d_tau2_zero = 0
+    d_gol = gol_digital(d_tau1_init, _d_tau2_zero)
+    print(d_gol)
+    plt.figure()
+    __ = con.bode(d_gol, Hz=True, dB=True)
+    plt.subplot(2, 1, 1)
+    plt.title('Bode Plot')
+    plt.axis([1, fs_1 / 2, -100, 100])
+    plt.show()
+
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Note the additional lagging phase due to the parastic $z^{-1}$ delays in the implementation. This will limit the minimum sampling rate to loop bandwidth ratio.
+    """)
+    return
+
+
+@app.cell
+def _(con, d_lbw, d_tau1_init, fs_1, gol_digital, np, plt):
+    # inial values were tau2 = 1/lbw and tau1 = 1.4 x tau1 computed above for a 45 degree phase margin
+    # then to increase phase margin to increase the damping factor and keep the same loop bw,
+    # end result after interating: tau2 = 4fs/lbw, tau1 = 4 x tau1 computed above
+
+    # adjusts phase as 1/tau2, this will change the zeo crossing, so adjust tau1 to compensate:
+    d_tau2 = 2 / d_lbw
+    d_tau1 = 2.2 * d_tau1_init  # adjusts gain as 1/tau1
+    print(f'd_tau2={d_tau2!r}')
+    print(f'd_tau1={d_tau1!r}')
+    d_gol_1 = gol_digital(d_tau1, d_tau2)
+    plt.figure()
+    __ = con.bode(d_gol_1, dB=True, Hz=True, display_margins=True, margins_method='frd', omega_limits=[1, np.pi * fs_1])
+    plt.subplot(2, 1, 1)
+    plt.title('Bode Plot')
+    plt.show()
+    return d_gol_1, d_tau1, d_tau2
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    The vertical line in plots above on right is to show Nyquist, and is not part of the response.
+
+    Ignore the reported gain margin since the phase didn't cross 180 degrees it was unable to detect the margin (add an extra delay sample delay to the transfer function by changing denominator to [dpll.tau1, -dpll.tau1, 0] to see proper gain and phase margin computation for that case. What is significant in the above plot is the phase margin and showing us the zero crossing close to 400 Hz.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Closed Loop
+    """)
+    return
+
+
+@app.cell
+def _(con, d_gol_1):
+    # Closed Loop from Ref Input to VCO Output
+    d_gcl1 = con.minreal(d_gol_1 / (1 + d_gol_1))
+    print(d_gcl1)
+    return (d_gcl1,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Pole Zero Map
+    """)
+    return
+
+
+@app.cell
+def _(con, d_gcl1, plt):
+    plt.figure(figsize=(9,9))
+    con.pzmap(d_gcl1, grid=True)
+    plt.show()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Closed Loop Time Domain Response (Step)
+
+    See notes above in the Closed Loop Time Domain Response for the analog loop about interpreting these plots. The plots show the response in the units of the output port to a normalized step in the units for that input port. (so in this case a response in phase to a step in phase).
+    """)
+    return
+
+
+@app.cell
+def _(con, d_gcl1, plt):
+    plt.figure(figsize=(7,4))
+    plt.plot(*con.step_response(d_gcl1))
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Amplitude")
+    plt.title("Step Response Signal In to NCO Out")
+    plt.grid()
+    plt.axis([0, .025, 0, 1.5])
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Closed Loop Frequency Domain Response
+
+    The vertical line in plot on right is to show Nyquist, and is not part of the response.
+    """)
+    return
+
+
+@app.cell
+def _(con, d_gcl1, fs_1, np, plt):
+    plt.figure(figsize=(7, 5))
+    con.bode(d_gcl1, dB=True, Hz=True, omega_limits=[2 * np.pi * 10, 2 * np.pi * fs_1 / 2])
+    plt.subplot(2, 1, 1)
+    plt.title('Frequency Response, Ref In to VCO Out')
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Time Sequenced Component Model
 
     This is not the Loop Model but a model of the actual implementation.
 
-    Below is a bit and cycle accurate Component Object model. A Component Object takes inputs and provides outputs on each sample of a "master clock" for discrete time time stepped simulations. Modelling with Component Objects is detailed in my course "Python Applications for Digital Design and Signal Processing". This is a simulation of the actual implementation which would capture non-linear effects, and after we'll develop the much simpler Loop Model for comparison.
+    Below is a bit and cycle accurate Component Object model. A Component Object takes inputs and provides outputs on each sample of a "master clock" for discrete time time stepped simulations. Modelling with Component Objects is detailed in my course "Python Applications for Digital Design and Signal Processing". This is a simulation of the actual implementation which would capture non-linear effects, which we compare against the much simpler Loop Model developed above. It uses the loop constants derived there.
     """)
     return
 
@@ -1075,7 +1407,7 @@ def _(mo):
 
 
 @app.cell
-def _(Nco, acc_size, fs, lut_addr, lut_out, pilot):
+def _(Nco, acc_size, d_tau1, d_tau2, fs, lut_addr, lut_out, pilot):
     nsamps_2 = int(8 * fs)  # number of samples ot simulate; -1 = all samples
     print(f'nsamps={nsamps_2!r}')
     print(f'fs={fs!r}')
@@ -1086,8 +1418,9 @@ def _(Nco, acc_size, fs, lut_addr, lut_out, pilot):
     # instantiate and prime components
     _nco = Nco(sum1=0, acc_size=acc_size, lut_addr=lut_addr, lut_out=lut_out)
     _nco.send(None)
-    tau1 = 3.756604e-05  # from d_tau1 in Digital Phase Lock Loop Model
-    tau2 = 305.57749  # from d_tau2 there (cell-local as _d_tau2 under marimo)
+    # loop constants as designed in the Loop Model above
+    tau1 = d_tau1
+    tau2 = d_tau2
     print(f'tau1={tau1:0.5f}')
     print(f'tau2={tau2:0.5f}')
 
@@ -1173,338 +1506,6 @@ def _(clean, fs, ftone, np, nsamps_2, phase_det, pilot, plt, result_1):
     plt.xlabel('Time (s)')
     plt.ylabel('Phase (rad)')
     plt.title('Extracted Pilot Phase vs Time After PLL')
-    plt.tight_layout()
-    plt.show()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.vstack(
-        [
-            mo.md(
-                r"""
-    ## Digital Phase Lock Loop Model
-    """
-            ),
-            mo.image(
-                mo.notebook_dir() / "img" / "digital_pll_loop_model.png",
-                alt="Digital PLL loop model",
-            ),
-            mo.md(
-                r"""
-    Note the units used for error and FCW here are actual counts, so will match the digital values at those nodes.
-
-    Open Loop Gain:
-
-    $$G_{OL}(z)= \frac{k_Vk_{PD}}{z-1}H(z)$$
-    """
-            ),
-        ]
-    )
-    return
-
-
-@app.cell
-def _(np):
-    fs_1 = 192000.0  # sampling rate in Hz. We'll use normalized radian frequency in the model.
-    d_lbw = 2 * np.pi * 200 / fs_1  # target loop bw in rad/sample
-    return d_lbw, fs_1
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.vstack(
-        [
-            mo.md(
-                r"""
-    ### NCO
-    """
-            ),
-            mo.image(
-                mo.notebook_dir() / "img" / "nco_block_diagram.png",
-                alt="NCO block diagram",
-            ),
-            mo.md(
-                r"""
-    Input on left is Frequency Control Word (FCW)
-    Output on right is the digitized sinusoid as the output of a Look-up Table (LUT) effectively containing one cycle of a sine wave.
-
-    For a small FCW, the accumulator will ramp up slowly. For a large FCW, the accumulator will ramp up more rapidly.
-
-    The Most Significant Bits of the accumulator are used as the address for the LUT. The accumulator wraps around on overflow, and thus produces a digitized sinusoidal output waveform with a frequency directly proportional to FCW, with a full range of DC to half the sampling rate.
-
-    Given a PLL implementation, we will work in units of phase, not frequency. In this context, the NCO, like the VCO, is an integrator, as a "phase accumulator".  The NCO gain for the loop model is $k_V/(z-1)$, where $k_V$ is the slope of the output frequency in radians/sample verus the frequency control word FCW. Note similarity of VCO gain for analog loop as $\frac{K_V}{s}$.
-
-    The frequency vs control word sensitivity is as shown in the plot below, resulting in
-    """
-            ),
-            mo.image(
-                mo.notebook_dir() / "img" / "nco_frequency_vs_fcw.png",
-                alt="NCO frequency vs frequency control word",
-            ),
-            mo.md(
-                r"""
-     This is a good example of how the mapping from s to z for poles and zeros in vicinity of $z=1$ is simply $s \leftrightarrow z-1$ when working in units of normalized frequency such that the time index is in samples ($T=1$).
-    """
-            ),
-        ]
-    )
-    return
-
-
-@app.cell
-def _(np):
-    # NCO 
-    accum_size = 48
-    fcw_size = 47
-
-
-    d_kv= np.pi/2**fcw_size        # NCO gain in rad/count
-    return (d_kv,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.vstack(
-        [
-            mo.md(
-                r"""
-    ### Phase Detector
-    """
-            ),
-            mo.image(
-                mo.notebook_dir() / "img" / "digital_phase_detector.png",
-                alt="Digital phase detector",
-            ),
-        ]
-    )
-    return
-
-
-@app.cell
-def _():
-    precision = 16               # precision of both phase detector inputs
-    d_kpd = 2**(precision-1)     # Phase detector gain counts/rad
-    return (d_kpd,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.vstack(
-        [
-            mo.md(
-                r"""
-    ### PI Loop Filter
-    """
-            ),
-            mo.image(
-                mo.notebook_dir() / "img" / "pi_loop_filter_block_diagram.png",
-                alt="PI loop filter block diagram",
-            ),
-            mo.md(
-                r"""
-    $$H(z) = P+I\frac{1}{z-1} = \frac{\tau_2}{\tau_1} + \frac{1}{\tau_1}\frac{1}{z-1}$$
-
-    $$=\frac{\tau_2(z-1) + 1}{\tau_1(z-1)} = \frac{\tau_2z +1 - \tau_2}{\tau_1(z-1)} $$
-
-    ### Open Loop Gain
-
-    $$G_{OL}(z)= \frac{k_Vk_{PD}}{z-1}H(z)$$
-
-    $$=  \bigg(\frac{k_Vk_{PD}}{z-1}\bigg)\bigg(\frac{\tau_2z +1 - \tau_2}{\tau_1(z-1)}\bigg)$$
-
-    $$ = \bigg(\frac{k_Vk_{PD}}{\tau_1}\bigg)\bigg(\frac{\tau_2z +1 - \tau_2}{(z-1)^2}\bigg)$$
-    """
-            ),
-        ]
-    )
-    return
-
-
-@app.cell
-def _(con, d_kpd, d_kv, fs_1):
-    # since we'll iterate on gain constants, make the open loop gain a function
-    def gol_digital(tau1, tau2):
-    # setting dt is what makes this a transfer function in z instead of s (digital instead of analog)
-    # setting dt will not affect the decision to use normalized frequency or not (gains don't change)
-    # but will effect the units on the horizontal axis for Bode plots
-        return d_kv * d_kpd / tau1 * con.tf([tau2, 1 - tau2], [1, -2, 1], dt=1 / fs_1)
-
-    return (gol_digital,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Starting Loop Values
-
-    Like we did for the analog 2nd order PLL, we'll first set $\tau_2=0$ and adjust $\tau_1$ (primary gain control) such that the zero dB gain crossing is right at the loop bandwidth.
-
-    With $\tau_2=0$, the open loop gain simplifies to:
-
-    $$ G_{OL}(z)|_{\tau_2=0}= \bigg(\frac{k_Vk_{PD}}{\tau_1(z-1)^2}\bigg)$$
-
-    Similar to estimating $\tau_1$ in the analog loop, but with added complexity of the unit circle on the z-plane being the frequency axis. Therefore we set $z=e^{j\omega_c}$  (like we set $s=\omega_c$ for the analog loop), and determine $\tau_1$ such that $|G_{OL}(z)|=1$
-
-    This becomes:
-
-    $$\tau_1 = \bigg| \frac{k_Vk_{PD}}{(e^{j\omega_c}-1)^2}  \bigg| $$
-
-    Assuming a positive $k_V$ and $k_{PD}$ (when negative that is considered the negative feedback for the loop and only positive gain values are used), then
-
-    $$\tau_1 =\frac{k_Vk_{PD}}{|(e^{j\omega_c}-1)|^2}  $$
-
-    Note for $\omega_c<< 1$,   $|(e^{j\omega_c}-1)|^2  \approx \omega_c^2$ (looking at that graphically on the complex plane provides great intuition for this) and for these cases we end up with a similar equation to the analog loop:
-
-    $$\tau_1 \approx \frac{k_Vk_{PD}}{\omega_c^2}, \text{   for } \omega_c<< 1  $$
-
-    This is intuitively pleasing as we would expect the loop models to match the analog models if we significantly oversample the loop. Since we are dealing with normalized frequencies in the digital case (divide by the sampling rate), as the sampling rate increases, $\omega_n$ will get increasingly smaller for the same loop bandwidth in Hz.
-
-    Since we are iterating after setting the initial values, this will be a sufficient estimate even for higher frequency cases.
-
-    We'll then add the zero at (45° phase margin) or slightly below (higher phase margin) the loop bandwidth for stability.
-
-    This will increase the bandwidth slightly, so then iterate on both from these starting values to decrease the loop gain using $\tau_1$, and increase or decrease $\tau_2$ while observing response on Bode plot for desired gain and phase margin.
-    """)
-    return
-
-
-@app.cell
-def _(d_kpd, d_kv, d_lbw, np):
-    print(f"Target loop bw = {d_lbw:0.5f} rad/sample")
-    print(f" = {d_lbw/(2*np.pi):0.4f} cycles/sample")
-
-    d_tau1_init = (d_kv * d_kpd)/d_lbw**2
-    print(f"Initial value for tau1 = {d_tau1_init:0.2e}")
-    return (d_tau1_init,)
-
-
-@app.cell
-def _(con, d_tau1_init, fs_1, gol_digital, plt):
-    _d_tau2 = 0
-    d_gol = gol_digital(d_tau1_init, _d_tau2)
-    print(d_gol)
-    plt.figure()
-    __ = con.bode(d_gol, Hz=True, dB=True)
-    plt.subplot(2, 1, 1)
-    plt.title('Bode Plot')
-    plt.axis([1, fs_1 / 2, -100, 100])
-    plt.show()
-
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    Note the additional lagging phase due to the parastic $z^{-1}$ delays in the implementation. This will limit the minimum sampling rate to loop bandwidth ratio.
-    """)
-    return
-
-
-@app.cell
-def _(con, d_lbw, d_tau1_init, fs_1, gol_digital, np, plt):
-    # inial values were tau2 = 1/lbw and tau1 = 1.4 x tau1 computed above for a 45 degree phase margin
-    # then to increase phase margin to increase the damping factor and keep the same loop bw,
-    # end result after interating: tau2 = 4fs/lbw, tau1 = 4 x tau1 computed above
-
-    # adjusts phase as 1/tau2, this will change the zeo crossing, so adjust tau1 to compensate:
-    _d_tau2 = 2 / d_lbw
-    d_tau1 = 2.2 * d_tau1_init  # adjusts gain as 1/tau1
-    print(f'd_tau2={_d_tau2!r}')
-    print(f'd_tau1={d_tau1!r}')
-    d_gol_1 = gol_digital(d_tau1, _d_tau2)
-    plt.figure()
-    __ = con.bode(d_gol_1, dB=True, Hz=True, display_margins=True, margins_method='frd', omega_limits=[1, np.pi * fs_1])
-    plt.subplot(2, 1, 1)
-    plt.title('Bode Plot')
-    plt.show()
-    return (d_gol_1,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    The vertical line in plots above on right is to show Nyquist, and is not part of the response.
-
-    Ignore the reported gain margin since the phase didn't cross 180 degrees it was unable to detect the margin (add an extra delay sample delay to the transfer function by changing denominator to [dpll.tau1, -dpll.tau1, 0] to see proper gain and phase margin computation for that case. What is significant in the above plot is the phase margin and showing us the zero crossing close to 400 Hz.
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Closed Loop
-    """)
-    return
-
-
-@app.cell
-def _(con, d_gol_1):
-    # Closed Loop from Ref Input to VCO Output
-    d_gcl1 = con.minreal(d_gol_1 / (1 + d_gol_1))
-    print(d_gcl1)
-    return (d_gcl1,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Pole Zero Map
-    """)
-    return
-
-
-@app.cell
-def _(con, d_gcl1, plt):
-    plt.figure(figsize=(9,9))
-    con.pzmap(d_gcl1, grid=True)
-    plt.show()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Closed Loop Time Domain Response (Step)
-
-    See notes above in the Closed Loop Time Domain Response for the analog loop about interpreting these plots. The plots show the response in the units of the output port to a normalized step in the units for that input port. (so in this case a response in phase to a step in phase).
-    """)
-    return
-
-
-@app.cell
-def _(con, d_gcl1, plt):
-    plt.figure(figsize=(7,4))
-    plt.plot(*con.step_response(d_gcl1))
-    plt.xlabel("Time (seconds)")
-    plt.ylabel("Amplitude")
-    plt.title("Step Response Signal In to NCO Out")
-    plt.grid()
-    plt.axis([0, .025, 0, 1.5])
-    plt.tight_layout()
-    plt.show()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Closed Loop Frequency Domain Response
-
-    The vertical line in plot on right is to show Nyquist, and is not part of the response.
-    """)
-    return
-
-
-@app.cell
-def _(con, d_gcl1, fs_1, np, plt):
-    plt.figure(figsize=(7, 5))
-    con.bode(d_gcl1, dB=True, Hz=True, omega_limits=[2 * np.pi * 10, 2 * np.pi * fs_1 / 2])
-    plt.subplot(2, 1, 1)
-    plt.title('Frequency Response, Ref In to VCO Out')
     plt.tight_layout()
     plt.show()
     return
