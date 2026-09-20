@@ -62,21 +62,6 @@ def _():
     return con, fft, math, np, plt, sig, wave
 
 
-@app.cell
-def _():
-    # '%matplotlib ipympl' command supported automatically in marimo
-    return
-
-
-@app.cell
-def _(plt):
-    # configurations
-
-    # disable max open figure warning
-    plt.rcParams.update({'figure.max_open_warning': 0})
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.vstack(
@@ -85,11 +70,9 @@ def _(mo):
                 r"""
     ## Analog Phase Lock Loop Implementation
 
-    For this simulation we will model a PLL using the Microchip PFD1K 8 GHz Phase/Frequency Detector
+    For this simulation we will model a PLL using the Microchip PFD1K 8 GHz Phase/Frequency Detector to lock an HMC733LC4B 10 to 20 GHz VCO to a 100 MHz reference for outputs from 10 to 20 GHz in 100 MHz steps.
 
-    to lock an HMC733LC4B 10 to 20 GHz VCO to a 100 MHz reference for outputs from 10 to 20 GHz in 100 MHz steps
-
-    This will require a prescaler of 10e9/100e6 = 100 up to 20e9/100e6 = 200
+    This will require a prescaler of 10e9/100e6 = 100 up to 20e9/100e6 = 200.
 
     We'll design for a loop BW of 1 MHz.
     """
@@ -179,13 +162,13 @@ def _(mo):
                 r"""
     ### PFD
 
-     PFD1K
+    PFD1K
 
-     Establish Phase Detector Gain $K_{PD}$ from Microchip Datasheet:
+    Establish Phase Detector Gain $K_{PD}$ from Microchip Datasheet:
 
-     https://ww1.microchip.com/downloads/aemDocuments/documents/RFDS/ProductDocuments/DataSheets/PFD1K.pdf
+    https://ww1.microchip.com/downloads/aemDocuments/documents/RFDS/ProductDocuments/DataSheets/PFD1K.pdf
 
-     Output voltage vs phase with differential output properly terminated to convert currents to voltage:
+    Output voltage vs phase with differential output properly terminated to convert currents to voltage:
     """
             ),
             mo.image(
@@ -368,13 +351,15 @@ def _(mo):
 
 @app.cell
 def _(a_N, a_lbw, a_tau1_init, con, gol_analog, plt):
-    # inial values were tau2 = 1/lbw and tau1 = 1.4 x tau2 computed above for a 45 degree phase margin
-    # then iterate to increase phase margin to increase the damping factor and keep the same loop bw,
+    # inial values were tau2 = 1/lbw and tau1 = 1.4 x tau2 computed above for a 45 degree 
+    # phase margin then iterate to increase phase margin to increase the damping factor 
+    # and keep the same loop bw, 
     # end result after interating: tau2 = 2.3/lbw, tau1 = 2.7 x tau1 computed above
 
     # 1/tau1 is the integral gain, and tau2/tau1 is the proportional gain
 
-    # adjusts phase as 1/tau2, this will change the zeo crossing, so adjust tau1 to compensate:
+    # adjusts phase as 1/tau2, this will change the zeo crossing, 
+    # so adjust tau1 to compensate:
     _a_tau2 = 2.3 / a_lbw
     a_tau1 = 2.7 * a_tau1_init
     a_gol_1 = gol_analog(a_tau1, _a_tau2, a_N)
@@ -464,12 +449,9 @@ def _(mo):
             ),
             mo.md(
                 r"""
-    As damping factor approaches 0, rise time will get faster at the expense of more ringing and overshoot.
-
-    As damping factor approaches 1, rise time and overshoot will decrease.
-
-    Once the damping factor is at 1, the poles are on the real axis, and the system is "underdamped".
-
+    As damping factor approaches 0, rise time will get faster at the expense of more ringing and overshoot.<br>
+    As damping factor approaches 1, rise time and overshoot will decrease.<br>
+    Once the damping factor is at 1, the poles are on the real axis, and the system is "underdamped".<br>
     A damping factor close to 0.7 is typically desirable as it offers a good compromise for balanceing rise time and overshoot/ringing considerations.
     """
             ),
@@ -500,7 +482,8 @@ def _(mo):
 @app.cell
 def _(a_gcl1, con, plt):
     plt.figure(figsize=(7,7))
-    __ = con.pzmap(a_gcl1, grid=True);
+    con.pzmap(a_gcl1, grid=True)
+    plt.show()
     return
 
 
@@ -532,6 +515,7 @@ def _(a_gcl1, a_gcl2, con, plt):
     plt.title("Step Response VCO Out (one rad) to VCO Out")
     plt.grid()
     plt.tight_layout()
+    plt.show()
     return
 
 
@@ -546,10 +530,11 @@ def _(mo):
 @app.cell
 def _(a_gcl1, con, plt):
     plt.figure()
-    __ = con.bode(a_gcl1, dB=True, Hz=True, omega_limits=[10000, 50e6])
+    con.bode(a_gcl1, dB=True, Hz=True, omega_limits=[10000, 50e6])
     plt.subplot(2,1,1)
     plt.title("Frequency Response, Ref In to VCO Out")
     plt.tight_layout()
+    plt.show()
     return
 
 
@@ -564,10 +549,11 @@ def _(mo):
 @app.cell
 def _(a_gcl2, con, plt):
     plt.figure()
-    __ = con.bode(a_gcl2, dB=True, Hz=True, omega_limits=[10000, 50e6])
+    con.bode(a_gcl2, dB=True, Hz=True, omega_limits=[10000, 50e6])
     plt.subplot(2,1,1)
     plt.title("Frequency Response, VCO Out to VCO Out")
     plt.tight_layout()
+    plt.show()
     return
 
 
@@ -645,7 +631,9 @@ def _(mo):
             mo.md(
                 r"""
     ### Test Signal : FM Broadcast Pilot Tone
-    """
+
+    This is the spectrum from an actual FM signal showing the pilot. The waveform was obviously low-pass filtered since the upper sideband of the L-R signal that is AM modulated to 38 kHz is missing. 
+    """ 
             ),
             mo.image(
                 mo.notebook_dir() / "img" / "fm_broadcast_pilot_spectrum.png",
@@ -713,6 +701,12 @@ def _(fft, np, plt, sig, srate):
 
 
 @app.cell
+def _(fm_wfm, mo, srate):
+    mo.audio(fm_wfm, rate=srate)
+    return
+
+
+@app.cell
 def _(fm_wfm, lut_out, np, sig, srate):
     # bandpass filter 19 KHz
 
@@ -749,12 +743,6 @@ def _(fm_wfm, lut_out, pilot, plot_spectrum, plt, srate):
 
 
 @app.cell
-def _(fm_wfm, mo, srate):
-    mo.audio(fm_wfm, rate=srate)
-    return
-
-
-@app.cell
 def _(lut_out, np, pilot, plt, srate):
     # compare scale of filtered pilot to "clean" reference signal
     _n = np.arange(len(pilot))
@@ -770,15 +758,18 @@ def _(lut_out, np, pilot, plt, srate):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    The Pilot and Reference are not locked above as we see below with a zoom in at two arbitrary locations near the start and end of the sequence:
+    The Pilot and Reference are not locked above as we see below with a zoom in at two arbitrary locations in the sequence:
     """)
     return
 
 
 @app.cell
 def _(clean, np, pilot, plt):
-    range1 = np.arange(552400,552600)
-    range2 = np.arange(4303800,4304000)
+    span = 200
+    start1 = 552400
+    start2 = 3000800 #4303800
+    range1 = np.arange(start1, start1 + span)
+    range2 = np.arange(start2, start2 + span)
     plt.figure()
     plt.subplot(2,1,1)
     plt.plot(range1, clean[range1], label="ref")
@@ -787,7 +778,8 @@ def _(clean, np, pilot, plt):
     plt.plot(range2, clean[range2], label="ref")
     plt.plot(range2, pilot[range2], label="filtered pilot")
     plt.tight_layout()
-    return
+    plt.show()
+    return (start1,)
 
 
 @app.cell(hide_code=True)
@@ -827,7 +819,36 @@ def _(clean, fs, ftone, np, pilot, sig):
 
 
     filtered_phase = phase_det(pilot, clean, ftone, fs, ntaps = 501, fpass = 500, fstop = 2000)
-    return (phase_det,)
+    return filtered_phase, phase_det
+
+
+@app.cell
+def _(filtered_phase, fs, np, plt, start1):
+    # The reference is not yet locked to the pilot, so the detected phase drifts
+    # rather than settling. Zoomed in, since the drift is not visible over the
+    # full 31.6 second recording.
+    _phase_wide = np.arange(start1, start1 + int(2 * fs))
+    _phase_fine = np.arange(start1, start1 + int(0.01 * fs))
+
+    plt.figure(figsize=(9, 4))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(_phase_wide / fs, filtered_phase[_phase_wide], linewidth=0.6)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Phase (rad)')
+    plt.title('Pilot Phase Relative to Reference, 2 s')
+    plt.grid()
+
+    plt.subplot(1, 2, 2)
+    plt.plot(_phase_fine / fs, filtered_phase[_phase_fine])
+    plt.xlabel('Time (s)')
+    plt.ylabel('Phase (rad)')
+    plt.title('Same Phase, 10 ms Zoom')
+    plt.grid()
+
+    plt.tight_layout()
+    plt.show()
+    return
 
 
 @app.cell(hide_code=True)
@@ -971,6 +992,7 @@ def _(Nco, acc_size, lut_addr, lut_out, plt):
     # plot results
     plt.xlabel('Time (samples)')
     plt.tight_layout()
+    plt.show()
     return error, fcw_result
 
 
@@ -1040,6 +1062,7 @@ def _(Nco, acc_size, error, fcw_result, fs, lut_addr, lut_out, np, plt, sig):
     plt.title('PD Output')
     plt.xlabel('Time (samples)')
     plt.tight_layout()
+    plt.show()
     return
 
 
@@ -1151,6 +1174,7 @@ def _(clean, fs, ftone, np, nsamps_2, phase_det, pilot, plt, result_1):
     plt.ylabel('Phase (rad)')
     plt.title('Extracted Pilot Phase vs Time After PLL')
     plt.tight_layout()
+    plt.show()
     return
 
 
@@ -1366,7 +1390,8 @@ def _(con, d_tau1_init, fs_1, gol_digital, plt):
     plt.subplot(2, 1, 1)
     plt.title('Bode Plot')
     plt.axis([1, fs_1 / 2, -100, 100])
-    plt.subplot(2, 1, 2)
+    plt.show()
+
     return
 
 
@@ -1435,7 +1460,8 @@ def _(mo):
 @app.cell
 def _(con, d_gcl1, plt):
     plt.figure(figsize=(9,9))
-    __ = con.pzmap(d_gcl1, grid=True)
+    con.pzmap(d_gcl1, grid=True)
+    plt.show()
     return
 
 
@@ -1459,6 +1485,7 @@ def _(con, d_gcl1, plt):
     plt.grid()
     plt.axis([0, .025, 0, 1.5])
     plt.tight_layout()
+    plt.show()
     return
 
 
@@ -1475,10 +1502,11 @@ def _(mo):
 @app.cell
 def _(con, d_gcl1, fs_1, np, plt):
     plt.figure(figsize=(7, 5))
-    __ = con.bode(d_gcl1, dB=True, Hz=True, omega_limits=[2 * np.pi * 10, 2 * np.pi * fs_1 / 2])
+    con.bode(d_gcl1, dB=True, Hz=True, omega_limits=[2 * np.pi * 10, 2 * np.pi * fs_1 / 2])
     plt.subplot(2, 1, 1)
     plt.title('Frequency Response, Ref In to VCO Out')
     plt.tight_layout()
+    plt.show()
     return
 
 
