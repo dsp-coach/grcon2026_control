@@ -310,15 +310,79 @@ def _(a_N, a_kpd, a_kv, a_lbw):
     return (a_tau1_init,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    # Slider to explore how tau1 sets the loop bandwidth (tau2 = 0 in the plot below).
+    # The scale is in decades relative to the recommended a_tau1_init computed above,
+    # so 0 is the recommended value and -1 / +1 are one decade either side.
+    # Defined here, but displayed underneath the plot in the next cell.
+    a_tau1_slider = mo.ui.slider(
+        start=-1.0,
+        stop=1.0,
+        step=0.05,
+        value=0.0,
+        label="tau1 scaling, decades from recommended (0 = recommended)",
+        show_value=True,
+    )
+    return (a_tau1_slider,)
+
+
 @app.cell
-def _(a_N, a_tau1_init, con, gol_analog, plt):
+def _(
+    a_N,
+    a_kpd,
+    a_kv,
+    a_lbw,
+    a_tau1_init,
+    a_tau1_slider,
+    con,
+    gol_analog,
+    mo,
+    np,
+    plt,
+):
     # To demonstrate show Bode Plot with tau2=0 resulting in the cascade of two integrators
     _a_tau2 = 0
-    a_gol = gol_analog(a_tau1_init, _a_tau2, a_N)
+    _a_tau1 = a_tau1_init * 10 ** a_tau1_slider.value
+    a_gol = gol_analog(_a_tau1, _a_tau2, a_N)
+
+    # with tau2 = 0 the 0 dB crossing is at sqrt(kv*kpd/(N*tau1))
+    _fc = np.sqrt(a_kv * a_kpd / (a_N * _a_tau1)) / (2 * np.pi)
+    _ratio = 10 ** a_tau1_slider.value
+    _note = "recommended" if abs(a_tau1_slider.value) < 1e-9 else f"{_ratio:0.2f} x recommended"
+
+    # Axes are pinned, so the gain curve slides across a fixed frame as tau1 varies
+    # and the 0 dB crossing visibly walks left and right past the target marker,
+    # instead of the frame rescaling around the curve each time.
+    _wlo, _whi = 100.0, 2 * np.pi * 10e6
+    _flo, _fhi = _wlo / (2 * np.pi), _whi / (2 * np.pi)
+
     plt.figure()
-    __ = con.bode(a_gol, dB=True, Hz=True, omega_limits=[100, 20000000.0])
+    con.bode(a_gol, dB=True, Hz=True, omega_limits=[_wlo, _whi])
+
     plt.subplot(2, 1, 1)
-    plt.title('Bode Plot')
+    plt.axhline(0, color="0.6", linewidth=0.8)
+    plt.axvline(a_lbw / (2 * np.pi), color="r", linestyle="--", linewidth=1.2,
+                label="target loop BW")
+    plt.legend(loc="lower left", fontsize=8)
+    plt.xlim(_flo, _fhi)
+    plt.ylim(-70, 220)
+    plt.title("Bode Plot")
+
+    plt.subplot(2, 1, 2)
+    plt.xlim(_flo, _fhi)
+    plt.ylim(-270, -90)
+
+    mo.vstack(
+        [
+            plt.gcf(),
+            a_tau1_slider,
+            mo.md(
+                f"tau1 = **{_a_tau1:0.3e} s** ({_note}) &nbsp;&nbsp;|&nbsp;&nbsp; "
+                f"0 dB crossing = **{_fc / 1e6:0.3f} MHz** (target 1.000 MHz)"
+            ),
+        ]
+    )
     return
 
 
@@ -349,27 +413,123 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    # Reset button for the two tau sliders below. The counter in value/on_click is
+    # what makes the click observable: each press bumps the value, which re-runs the
+    # cell that creates the sliders, rebuilding both of them at 0.
+    # Displayed under the sliders in the plot cell.
+    a_tau_reset = mo.ui.button(
+        value=0,
+        on_click=lambda n: n + 1,
+        label="Reset tau1 and tau2 to recommended",
+    )
+    return (a_tau_reset,)
+
+
+@app.cell(hide_code=True)
+def _(a_tau_reset, mo):
+    # Sliders for the compensated loop: tau1 sets the loop bandwidth, tau2 places the
+    # zero that buys back phase margin. Both scales are in decades relative to the
+    # iterated values noted below (tau1 = 2.7 x a_tau1_init, tau2 = 2.3 / a_lbw),
+    # so 0 is the recommended setting. Both are displayed under the plot in the next cell.
+    #
+    # Reading the reset button here is what wires the button up: clicking it re-runs
+    # this cell, which re-creates both sliders back at 0.
+    _ = a_tau_reset.value
+
+    a_tau1_1_slider = mo.ui.slider(
+        start=-1.0,
+        stop=1.0,
+        step=0.05,
+        value=0.0,
+        label="tau1 scaling, decades from recommended (0 = recommended)",
+        show_value=True,
+    )
+    a_tau2_1_slider = mo.ui.slider(
+        start=-1.0,
+        stop=1.0,
+        step=0.05,
+        value=0.0,
+        label="tau2 scaling, decades from recommended (0 = recommended)",
+        show_value=True,
+    )
+    return a_tau1_1_slider, a_tau2_1_slider
+
+
 @app.cell
-def _(a_N, a_lbw, a_tau1_init, con, gol_analog, plt):
-    # inial values were tau2 = 1/lbw and tau1 = 1.4 x tau2 computed above for a 45 degree 
-    # phase margin then iterate to increase phase margin to increase the damping factor 
-    # and keep the same loop bw, 
+def _(
+    a_N,
+    a_lbw,
+    a_tau1_1_slider,
+    a_tau1_init,
+    a_tau2_1_slider,
+    a_tau_reset,
+    con,
+    gol_analog,
+    mo,
+    np,
+    plt,
+):
+    # inial values were tau2 = 1/lbw and tau1 = 1.4 x tau2 computed above for a 45 degree
+    # phase margin then iterate to increase phase margin to increase the damping factor
+    # and keep the same loop bw,
     # end result after interating: tau2 = 2.3/lbw, tau1 = 2.7 x tau1 computed above
 
     # 1/tau1 is the integral gain, and tau2/tau1 is the proportional gain
 
-    # adjusts phase as 1/tau2, this will change the zeo crossing, 
+    # adjusts phase as 1/tau2, this will change the zeo crossing,
     # so adjust tau1 to compensate:
-    _a_tau2 = 2.3 / a_lbw
-    a_tau1 = 2.7 * a_tau1_init
+    _a_tau2 = (2.3 / a_lbw) * 10 ** a_tau2_1_slider.value
+    a_tau1 = (2.7 * a_tau1_init) * 10 ** a_tau1_1_slider.value
     a_gol_1 = gol_analog(a_tau1, _a_tau2, a_N)
+
+    _gm, _pm, _wcg, _wcp = con.margin(a_gol_1)
+    _r1 = 10 ** a_tau1_1_slider.value
+    _r2 = 10 ** a_tau2_1_slider.value
+    _n1 = "recommended" if abs(a_tau1_1_slider.value) < 1e-9 else f"{_r1:0.2f} x recommended"
+    _n2 = "recommended" if abs(a_tau2_1_slider.value) < 1e-9 else f"{_r2:0.2f} x recommended"
+    _cross = f"{_wcp / (2 * np.pi) / 1e6:0.3f} MHz" if np.isfinite(_wcp) else "n/a"
+    _margin = f"{_pm:0.1f} deg" if np.isfinite(_pm) else "n/a"
+
+    # same fixed frame as the tau2 = 0 plot above, so the two can be read side by side
+    _wlo, _whi = 100.0, 2 * np.pi * 10e6
+    _flo, _fhi = _wlo / (2 * np.pi), _whi / (2 * np.pi)
+
     plt.figure()
-    __ = con.bode(a_gol_1, dB=True, Hz=True, display_margins=True, omega_limits=[10000, 50000000.0])
-    plt.grid()
+    con.bode(a_gol_1, dB=True, Hz=True, display_margins=True, omega_limits=[_wlo, _whi])
+
     plt.subplot(2, 1, 1)
-    plt.title('Bode Plot')
+    plt.axhline(0, color="0.6", linewidth=0.8)
+    plt.axvline(a_lbw / (2 * np.pi), color="r", linestyle="--", linewidth=1.2,
+                label="target loop BW")
+    plt.legend(loc="lower left", fontsize=8)
+    plt.xlim(_flo, _fhi)
+    plt.ylim(-70, 220)
     plt.grid()
-    plt.show()
+    plt.title("Bode Plot")
+
+    plt.subplot(2, 1, 2)
+    plt.xlim(_flo, _fhi)
+    plt.ylim(-270, -90)
+    plt.grid()
+
+    mo.vstack(
+        [
+            plt.gcf(),
+            a_tau1_1_slider,
+            a_tau2_1_slider,
+            a_tau_reset,
+            mo.md(
+                f"tau1 = **{a_tau1:0.3e} s** ({_n1}) &nbsp;&nbsp;|&nbsp;&nbsp; "
+                f"tau2 = **{_a_tau2:0.3e} s** ({_n2})"
+            ),
+            mo.md(
+                f"0 dB crossing = **{_cross}** (target 1.000 MHz) "
+                f"&nbsp;&nbsp;|&nbsp;&nbsp; phase margin = **{_margin}**"
+            ),
+        ]
+    )
     return (a_gol_1,)
 
 
@@ -483,7 +643,7 @@ def _(mo):
 def _(a_gcl1, con, plt):
     plt.figure(figsize=(7,7))
     con.pzmap(a_gcl1, grid=True)
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -515,7 +675,7 @@ def _(a_gcl1, a_gcl2, con, plt):
     plt.title("Step Response VCO Out (one rad) to VCO Out")
     plt.grid()
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -534,7 +694,7 @@ def _(a_gcl1, con, plt):
     plt.subplot(2,1,1)
     plt.title("Frequency Response, Ref In to VCO Out")
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -553,7 +713,7 @@ def _(a_gcl2, con, plt):
     plt.subplot(2,1,1)
     plt.title("Frequency Response, VCO Out to VCO Out")
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -738,7 +898,7 @@ def _(fm_wfm, lut_out, pilot, plot_spectrum, plt, srate):
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("dBFS")
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -778,7 +938,7 @@ def _(clean, np, pilot, plt):
     plt.plot(range2, clean[range2], label="ref")
     plt.plot(range2, pilot[range2], label="filtered pilot")
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return (start1,)
 
 
@@ -847,7 +1007,7 @@ def _(filtered_phase, fs, np, plt, start1):
     plt.grid()
 
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -1063,8 +1223,7 @@ def _(con, d_tau1_init, fs_1, gol_digital, plt):
     plt.subplot(2, 1, 1)
     plt.title('Bode Plot')
     plt.axis([1, fs_1 / 2, -100, 100])
-    plt.show()
-
+    plt.gcf()
     return
 
 
@@ -1076,24 +1235,136 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    # Reset button for the two digital tau sliders below. The counter in value/on_click
+    # is what makes the click observable: each press bumps the value, which re-runs the
+    # cell that creates the sliders, rebuilding both of them at 0.
+    d_tau_reset = mo.ui.button(
+        value=0,
+        on_click=lambda n: n + 1,
+        label="Reset d_tau1 and d_tau2 to recommended",
+    )
+    return (d_tau_reset,)
+
+
 @app.cell
-def _(con, d_lbw, d_tau1_init, fs_1, gol_digital, np, plt):
+def _(d_lbw, d_tau1_init):
+    # The design point for the digital loop, from the iteration described below.
+    # Kept in its own cell on purpose: marimo tracks dependencies per cell, so if these
+    # lived alongside the slider-driven values the Time Sequenced Component Model would
+    # re-run its 8 second bit-accurate simulation on every slider move.
+    d_tau2_design = 2 / d_lbw
+    d_tau1_design = 2.2 * d_tau1_init  # adjusts gain as 1/tau1
+    return d_tau1_design, d_tau2_design
+
+
+@app.cell(hide_code=True)
+def _(d_tau_reset, mo):
+    # Sliders for the digital compensated loop, in decades relative to the iterated
+    # design values (d_tau1 = 2.2 x d_tau1_init, d_tau2 = 2 / d_lbw), so 0 is the
+    # recommended setting. Displayed under the plot in the next cell.
+    #
+    # Reading the reset button here is what wires it up: clicking re-runs this cell,
+    # which re-creates both sliders back at 0.
+    _ = d_tau_reset.value
+
+    d_tau1_1_slider = mo.ui.slider(
+        start=-1.0,
+        stop=1.0,
+        step=0.05,
+        value=0.0,
+        label="d_tau1 scaling, decades from recommended (0 = recommended)",
+        show_value=True,
+    )
+    d_tau2_1_slider = mo.ui.slider(
+        start=-1.0,
+        stop=1.0,
+        step=0.05,
+        value=0.0,
+        label="d_tau2 scaling, decades from recommended (0 = recommended)",
+        show_value=True,
+    )
+    return d_tau1_1_slider, d_tau2_1_slider
+
+
+@app.cell
+def _(
+    con,
+    d_lbw,
+    d_tau1_1_slider,
+    d_tau1_design,
+    d_tau2_1_slider,
+    d_tau2_design,
+    d_tau_reset,
+    fs_1,
+    gol_digital,
+    mo,
+    np,
+    plt,
+):
     # inial values were tau2 = 1/lbw and tau1 = 1.4 x tau1 computed above for a 45 degree phase margin
     # then to increase phase margin to increase the damping factor and keep the same loop bw,
     # end result after interating: tau2 = 4fs/lbw, tau1 = 4 x tau1 computed above
 
     # adjusts phase as 1/tau2, this will change the zeo crossing, so adjust tau1 to compensate:
-    d_tau2 = 2 / d_lbw
-    d_tau1 = 2.2 * d_tau1_init  # adjusts gain as 1/tau1
+
+    # what the sliders explore: the loop model analysis follows these
+    d_tau2 = d_tau2_design * 10 ** d_tau2_1_slider.value
+    d_tau1 = d_tau1_design * 10 ** d_tau1_1_slider.value
     print(f'd_tau2={d_tau2!r}')
     print(f'd_tau1={d_tau1!r}')
     d_gol_1 = gol_digital(d_tau1, d_tau2)
+
+    # method='frd' matches the bode call below and avoids the poly-method fallback warning
+    _gm, _pm, _sm, _wpc, _wgc, _wms = con.stability_margins(d_gol_1, method='frd')
+    _r1 = 10 ** d_tau1_1_slider.value
+    _r2 = 10 ** d_tau2_1_slider.value
+    _n1 = "recommended" if abs(d_tau1_1_slider.value) < 1e-9 else f"{_r1:0.2f} x recommended"
+    _n2 = "recommended" if abs(d_tau2_1_slider.value) < 1e-9 else f"{_r2:0.2f} x recommended"
+    _cross = f"{_wgc / (2 * np.pi):0.1f} Hz" if np.isfinite(_wgc) else "n/a"
+    _margin = f"{_pm:0.1f} deg" if np.isfinite(_pm) else "n/a"
+    _ftarget = d_lbw * fs_1 / (2 * np.pi)
+
+    # axes pinned so the curve slides across a fixed frame as the taus vary
+    _wlo, _whi = 1.0, np.pi * fs_1
+    _flo, _fhi = _wlo / (2 * np.pi), _whi / (2 * np.pi)
+
     plt.figure()
-    __ = con.bode(d_gol_1, dB=True, Hz=True, display_margins=True, margins_method='frd', omega_limits=[1, np.pi * fs_1])
+    con.bode(d_gol_1, dB=True, Hz=True, display_margins=True, margins_method='frd',
+             omega_limits=[_wlo, _whi])
+
     plt.subplot(2, 1, 1)
+    plt.axhline(0, color="0.6", linewidth=0.8)
+    plt.axvline(_ftarget, color="r", linestyle="--", linewidth=1.2, label="target loop BW")
+    plt.legend(loc="lower left", fontsize=8)
+    plt.xlim(_flo, _fhi)
+    plt.ylim(-100, 145)
+    plt.grid()
     plt.title('Bode Plot')
-    plt.show()
-    return d_gol_1, d_tau1, d_tau2
+
+    plt.subplot(2, 1, 2)
+    plt.xlim(_flo, _fhi)
+    plt.ylim(-190, -80)
+    plt.grid()
+
+    mo.vstack(
+        [
+            plt.gcf(),
+            d_tau1_1_slider,
+            d_tau2_1_slider,
+            d_tau_reset,
+            mo.md(
+                f"d_tau1 = **{d_tau1:0.4e}** ({_n1}) &nbsp;&nbsp;|&nbsp;&nbsp; "
+                f"d_tau2 = **{d_tau2:0.4e}** ({_n2})"
+            ),
+            mo.md(
+                f"0 dB crossing = **{_cross}** (target {_ftarget:0.1f} Hz) "
+                f"&nbsp;&nbsp;|&nbsp;&nbsp; phase margin = **{_margin}**"
+            ),
+        ]
+    )
+    return (d_gol_1,)
 
 
 @app.cell(hide_code=True)
@@ -1134,7 +1405,7 @@ def _(mo):
 def _(con, d_gcl1, plt):
     plt.figure(figsize=(9,9))
     con.pzmap(d_gcl1, grid=True)
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -1158,7 +1429,7 @@ def _(con, d_gcl1, plt):
     plt.grid()
     plt.axis([0, .025, 0, 1.5])
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -1179,7 +1450,7 @@ def _(con, d_gcl1, fs_1, np, plt):
     plt.subplot(2, 1, 1)
     plt.title('Frequency Response, Ref In to VCO Out')
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -1324,7 +1595,7 @@ def _(Nco, acc_size, lut_addr, lut_out, plt):
     # plot results
     plt.xlabel('Time (samples)')
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return error, fcw_result
 
 
@@ -1394,7 +1665,7 @@ def _(Nco, acc_size, error, fcw_result, fs, lut_addr, lut_out, np, plt, sig):
     plt.title('PD Output')
     plt.xlabel('Time (samples)')
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
@@ -1407,7 +1678,16 @@ def _(mo):
 
 
 @app.cell
-def _(Nco, acc_size, d_tau1, d_tau2, fs, lut_addr, lut_out, pilot):
+def _(
+    Nco,
+    acc_size,
+    d_tau1_design,
+    d_tau2_design,
+    fs,
+    lut_addr,
+    lut_out,
+    pilot,
+):
     nsamps_2 = int(8 * fs)  # number of samples ot simulate; -1 = all samples
     print(f'nsamps={nsamps_2!r}')
     print(f'fs={fs!r}')
@@ -1419,8 +1699,8 @@ def _(Nco, acc_size, d_tau1, d_tau2, fs, lut_addr, lut_out, pilot):
     _nco = Nco(sum1=0, acc_size=acc_size, lut_addr=lut_addr, lut_out=lut_out)
     _nco.send(None)
     # loop constants as designed in the Loop Model above
-    tau1 = d_tau1
-    tau2 = d_tau2
+    tau1 = d_tau1_design
+    tau2 = d_tau2_design
     print(f'tau1={tau1:0.5f}')
     print(f'tau2={tau2:0.5f}')
 
@@ -1507,7 +1787,7 @@ def _(clean, fs, ftone, np, nsamps_2, phase_det, pilot, plt, result_1):
     plt.ylabel('Phase (rad)')
     plt.title('Extracted Pilot Phase vs Time After PLL')
     plt.tight_layout()
-    plt.show()
+    plt.gcf()
     return
 
 
