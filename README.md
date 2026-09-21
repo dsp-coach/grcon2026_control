@@ -26,6 +26,9 @@ If you already have a working Python environment with NumPy, SciPy,
 Matplotlib, python-control and marimo installed, you can simply run
 `marimo edit control_systems.py`.
 
+## Presentation
+A pdf copy of the presentation is included as control_presentation_boschen.pdf
+
 ## The FM broadcast IQ recording
 
 One section of the notebook demodulates a captured FM broadcast signal. That
