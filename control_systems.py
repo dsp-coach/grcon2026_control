@@ -640,10 +640,10 @@ def _(mo):
 
 
 @app.cell
-def _(a_gcl1, con, plt):
-    plt.figure(figsize=(7,7))
+def _(a_gcl1, con, mo, plt):
+    plt.figure(figsize=(5.5,5.5))
     con.pzmap(a_gcl1, grid=True)
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -660,8 +660,8 @@ def _(mo):
 
 
 @app.cell
-def _(a_gcl1, a_gcl2, con, plt):
-    plt.figure(figsize=(5,6))
+def _(a_gcl1, a_gcl2, con, mo, plt):
+    plt.figure(figsize=(5,5.5))
     plt.subplot(2,1,1)
     plt.plot(*con.step_response(a_gcl1))
     plt.xlabel("Time (seconds)")
@@ -675,7 +675,7 @@ def _(a_gcl1, a_gcl2, con, plt):
     plt.title("Step Response VCO Out (one rad) to VCO Out")
     plt.grid()
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -688,13 +688,13 @@ def _(mo):
 
 
 @app.cell
-def _(a_gcl1, con, plt):
+def _(a_gcl1, con, mo, plt):
     plt.figure()
     con.bode(a_gcl1, dB=True, Hz=True, omega_limits=[10000, 50e6])
     plt.subplot(2,1,1)
     plt.title("Frequency Response, Ref In to VCO Out")
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -707,13 +707,13 @@ def _(mo):
 
 
 @app.cell
-def _(a_gcl2, con, plt):
+def _(a_gcl2, con, mo, plt):
     plt.figure()
     con.bode(a_gcl2, dB=True, Hz=True, omega_limits=[10000, 50e6])
     plt.subplot(2,1,1)
     plt.title("Frequency Response, VCO Out to VCO Out")
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -924,7 +924,7 @@ def _(mo):
 
 
 @app.cell
-def _(clean, np, pilot, plt):
+def _(clean, mo, np, pilot, plt):
     span = 200
     start1 = 552400
     start2 = 3000800 #4303800
@@ -938,7 +938,7 @@ def _(clean, np, pilot, plt):
     plt.plot(range2, clean[range2], label="ref")
     plt.plot(range2, pilot[range2], label="filtered pilot")
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return (start1,)
 
 
@@ -983,7 +983,7 @@ def _(clean, fs, ftone, np, pilot, sig):
 
 
 @app.cell
-def _(filtered_phase, fs, np, plt, start1):
+def _(filtered_phase, fs, mo, np, plt, start1):
     # The reference is not yet locked to the pilot, so the detected phase drifts
     # rather than settling. Zoomed in, since the drift is not visible over the
     # full 31.6 second recording.
@@ -1007,7 +1007,7 @@ def _(filtered_phase, fs, np, plt, start1):
     plt.grid()
 
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -1214,7 +1214,7 @@ def _(d_kpd, d_kv, d_lbw, np):
 
 
 @app.cell
-def _(con, d_tau1_init, fs_1, gol_digital, plt):
+def _(con, d_tau1_init, fs_1, gol_digital, mo, plt):
     _d_tau2_zero = 0
     d_gol = gol_digital(d_tau1_init, _d_tau2_zero)
     print(d_gol)
@@ -1223,7 +1223,7 @@ def _(con, d_tau1_init, fs_1, gol_digital, plt):
     plt.subplot(2, 1, 1)
     plt.title('Bode Plot')
     plt.axis([1, fs_1 / 2, -100, 100])
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -1402,10 +1402,10 @@ def _(mo):
 
 
 @app.cell
-def _(con, d_gcl1, plt):
-    plt.figure(figsize=(9,9))
+def _(con, d_gcl1, mo, plt):
+    plt.figure(figsize=(5.5,5.5))
     con.pzmap(d_gcl1, grid=True)
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -1420,7 +1420,7 @@ def _(mo):
 
 
 @app.cell
-def _(con, d_gcl1, plt):
+def _(con, d_gcl1, mo, plt):
     plt.figure(figsize=(7,4))
     plt.plot(*con.step_response(d_gcl1))
     plt.xlabel("Time (seconds)")
@@ -1429,7 +1429,7 @@ def _(con, d_gcl1, plt):
     plt.grid()
     plt.axis([0, .025, 0, 1.5])
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -1444,13 +1444,13 @@ def _(mo):
 
 
 @app.cell
-def _(con, d_gcl1, fs_1, np, plt):
+def _(con, d_gcl1, fs_1, mo, np, plt):
     plt.figure(figsize=(7, 5))
     con.bode(d_gcl1, dB=True, Hz=True, omega_limits=[2 * np.pi * 10, 2 * np.pi * fs_1 / 2])
     plt.subplot(2, 1, 1)
     plt.title('Frequency Response, Ref In to VCO Out')
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -1568,7 +1568,7 @@ def _(mo):
 
 
 @app.cell
-def _(Nco, acc_size, lut_addr, lut_out, plt):
+def _(Nco, acc_size, lut_addr, lut_out, mo, plt):
     # Functional Test of Loop Filter and NCO
     # Simple Open Loop Test with P=0 (integrate only) resulting in ramping FCW
     nsamps = 2 ** 14
@@ -1595,7 +1595,7 @@ def _(Nco, acc_size, lut_addr, lut_out, plt):
     # plot results
     plt.xlabel('Time (samples)')
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return error, fcw_result
 
 
@@ -1618,7 +1618,19 @@ def _(mo):
 
 
 @app.cell
-def _(Nco, acc_size, error, fcw_result, fs, lut_addr, lut_out, np, plt, sig):
+def _(
+    Nco,
+    acc_size,
+    error,
+    fcw_result,
+    fs,
+    lut_addr,
+    lut_out,
+    mo,
+    np,
+    plt,
+    sig,
+):
     # Phase Detector
 
     nsamps_1 = 1000
@@ -1665,7 +1677,7 @@ def _(Nco, acc_size, error, fcw_result, fs, lut_addr, lut_out, np, plt, sig):
     plt.title('PD Output')
     plt.xlabel('Time (samples)')
     plt.tight_layout()
-    plt.gcf()
+    mo.mpl.interactive(plt.gcf())
     return
 
 
@@ -1810,7 +1822,7 @@ def _(mo):
 
 
 @app.cell
-def _(np, plt):
+def _(mo, np, plt):
     # graphically showing the mapping from s to z for z=e^s
     # by drawing a 
 
@@ -1879,6 +1891,7 @@ def _(np, plt):
     plt.grid()
     plt.axis('equal')
     plt.title('z Plane')
+    mo.mpl.interactive(plt.gcf())
     return
 
 
