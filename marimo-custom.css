@@ -1,0 +1,30 @@
+/* Custom styling for the "Control Systems" notebook
+ * GNU Radio Conference 2026 - The DSP Coach, LLC
+ *
+ * Loaded via css_file in the marimo.App(...) declaration at the top of
+ * control_systems.py, so it travels with the repository and needs no setup.
+ *
+ * marimo's editor caps every cell output at 610px tall and scrolls the
+ * overflow inside the cell:
+ *
+ *     .marimo-cell.interactive .console-output-area,
+ *     .marimo-cell.interactive .output-area { max-height: 610px; overflow: auto }
+ *
+ * Several cells here exceed that - the Bode plots that carry sliders and a
+ * readout beneath them, and the figure cells that stack two diagrams under a
+ * paragraph of text. Lifting the cap lets those render in full and scrolls the
+ * page instead, which reads better and avoids a scrollbar swallowing the
+ * matplotlib toolbar.
+ *
+ * The cap applies only to the editor; app view (marimo run) uses
+ * .marimo-cell.published, which never sets a max-height.
+ *
+ * Note: do not add overflow:visible here. overflow-x:auto combined with
+ * overflow-y:visible is not a legal pairing - the visible value computes back
+ * to auto - and the content would spill over the cell chrome.
+ */
+
+.marimo-cell.interactive .output-area,
+.marimo-cell.interactive .console-output-area {
+  max-height: none;
+}

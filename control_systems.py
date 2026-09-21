@@ -1,7 +1,11 @@
 import marimo
 
 __generated_with = "0.24.2"
-app = marimo.App()
+app = marimo.App(
+    width="medium",
+    app_title="Control Systems",
+    css_file="marimo-custom.css",
+)
 
 
 @app.cell
@@ -80,6 +84,7 @@ def _(mo):
             mo.image(
                 mo.notebook_dir() / "img" / "analog_pll_block_diagram.png",
                 alt="Analog PLL block diagram",
+                width=800,
             ),
         ]
     )
@@ -111,11 +116,11 @@ def _(mo):
             ),
             mo.image(
                 mo.notebook_dir() / "img" / "hmc733_tuning_curve.png",
-                alt="HMC733 frequency vs tuning voltage",
+                alt="HMC733 frequency vs tuning voltage" , width=700,
             ),
             mo.md(
                 r"""
-    *Source: [Analog Devices HMC733LC4B datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/hmc733.pdf), © Analog Devices, Inc. Reproduced here as the subject of the discussion; see LICENSE-CONTENT.md.*
+    *Source: [Analog Devices HMC733LC4B datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/hmc733.pdf), © Analog Devices, Inc. Reproduced here as the subject of the discussion.*
     """
             ),
             mo.md(
@@ -127,11 +132,11 @@ def _(mo):
             ),
             mo.image(
                 mo.notebook_dir() / "img" / "hmc733_tuning_slope.png",
-                alt="HMC733 tuning slope vs frequency",
+                alt="HMC733 tuning slope vs frequency",  width=700,
             ),
             mo.md(
                 r"""
-    *Source: [Analog Devices HMC733LC4B datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/hmc733.pdf), © Analog Devices, Inc. Reproduced here as the subject of the discussion; see LICENSE-CONTENT.md.*
+    *Source: [Analog Devices HMC733LC4B datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/hmc733.pdf), © Analog Devices, Inc. Reproduced here as the subject of the discussion*
     """
             ),
             mo.md(
@@ -173,11 +178,11 @@ def _(mo):
             ),
             mo.image(
                 mo.notebook_dir() / "img" / "pfd1k_output_voltage_vs_phase.png",
-                alt="PFD1K output voltage vs phase",
+                alt="PFD1K output voltage vs phase", width = 700,
             ),
             mo.md(
                 r"""
-    *Source: [Microchip PFD1K datasheet](https://ww1.microchip.com/downloads/aemDocuments/documents/RFDS/ProductDocuments/DataSheets/PFD1K.pdf), © Microchip Technology Inc. Reproduced here as the subject of the discussion; see LICENSE-CONTENT.md.*
+    *Source: [Microchip PFD1K datasheet](https://ww1.microchip.com/downloads/aemDocuments/documents/RFDS/ProductDocuments/DataSheets/PFD1K.pdf), © Microchip Technology Inc. Reproduced here as the subject of the discussion.*
     """
             ),
         ]
@@ -198,7 +203,12 @@ def _(mo):
             ),
             mo.image(
                 mo.notebook_dir() / "img" / "pfd1k_pi_loop_filter_schematic.png",
-                alt="PFD1K PI loop filter schematic",
+                alt="PFD1K PI loop filter schematic", width = 900,
+            ),        
+            mo.md(
+                r"""
+    *Source: [Microchip PFD1K datasheet](https://ww1.microchip.com/downloads/aemDocuments/documents/RFDS/ProductDocuments/DataSheets/PFD1K.pdf), © Microchip Technology Inc. Reproduced here as the subject of the discussion.*
+    """
             ),
             mo.md(
                 r"""
@@ -275,13 +285,13 @@ def _(mo):
             ),
             mo.image(
                 mo.notebook_dir() / "img" / "analog_starting_loop_values.png",
-                alt="Analog loop starting values",
+                alt="Analog loop starting values", width=800
             ),
             mo.md(
                 r"""
-    We can get an initial value for $\tau_1$ by first neglecting the effects of $\tau_2$ by setting $\tau_2=0$ and choosing a zero dB crossing on the Bode gain plot to be the loop BW.
+    We can get an initial value for $\tau_1$ by first neglecting the effects of $\tau_2$ by setting $\tau_2=0$ and choosing a zero dB crossing on the Bode gain plot to be the loop BW. 
 
-    The zero dB gain crossing is when:
+    The zero dB gain crossing is when: 
 
     $$|G_{OL}(s)|=1$$
 
@@ -291,7 +301,7 @@ def _(mo):
 
     $$\tau_1 = \frac{k_Vk_{PD}}{N\omega_c^2}$$
 
-    We'll then add the zero at (45° phase margin) or slightly below (higher phase margin) the loop bandwidth for stability.
+    We'll then add the zero for stability at the loop bandwidth (for 45° phase margin) or slightly below the loop bandwidth (for higher phase margin).
 
     This will increase the bandwidth slightly, so then iterate on both from these starting values to decrease the loop gain using $\tau_1$, and increase or decrease $\tau_2$ while observing response on Bode plot for desired gain and phase margin.
     """
@@ -605,7 +615,7 @@ def _(mo):
             ),
             mo.image(
                 mo.notebook_dir() / "img" / "damping_factor_pole_angle.png",
-                alt="Damping factor as cosine of pole angle",
+                alt="Damping factor as cosine of pole angle", width=700,
             ),
             mo.md(
                 r"""
